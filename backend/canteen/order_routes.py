@@ -1,9 +1,10 @@
 import json
+import secrets
 from typing import Optional
 from fastapi import APIRouter, Header, HTTPException
 from .database import connect, now, row_dict
 from .schemas import OrderInput, StatusInput, PaymentInput
-from .services import get_order_by_id, require_admin
+from .services import get_order_by_id, get_order_with_tracking_token, hash_order_tracking_token, require_admin
 
 router = APIRouter()
 
@@ -12,6 +13,7 @@ def create_order(payload: OrderInput):
     if not payload.items:
         raise HTTPException(400, "Add at least one item to your cart.")
     quantities = {}
+    tracking_token = secrets.token_urlsafe(32)
     for line in payload.items:
         try:
             iid = int(line.item_id)
@@ -78,12 +80,16 @@ def create_order(payload: OrderInput):
                 (payload.customer_name.strip() or "Student", json.dumps(item_snapshots), subtotal, combo_discount, total,
                  counter["number"], prep, estimated_for(counter["number"]) + prep, created, created))
             order_id = cur.lastrowid
+            con.execute("INSERT INTO order_tracking_secrets(order_id,token_hash,created_at) VALUES (?,?,?)",
+                        (order_id, hash_order_tracking_token(tracking_token), created))
             for item_id, quantity, item_name in reserved:
                 con.execute("""INSERT INTO inventory_logs(item_id,item_name,quantity_change,reason,order_id,created_at)
                     VALUES (?,?,?,?,?,?)""",
                     (str(item_id), item_name, -quantity, f"Reserved for order {order_id}", str(order_id), created))
 
-        return get_order_by_id(order_id)
+        created_order = get_order_by_id(order_id)
+        created_order["tracking_token"] = tracking_token
+        return created_order
     except HTTPException:
         # A failed transaction rolls back stock updates when the connection context exits.
         raise
@@ -103,8 +109,8 @@ def list_orders(status: Optional[str] = None, limit: int = 100):
 
 
 @router.get("/api/orders/{order_id}")
-def read_order(order_id: str):
-    return get_order_by_id(order_id)
+def read_order(order_id: str, x_order_tracking_token: Optional[str] = Header(default=None)):
+    return get_order_with_tracking_token(order_id, x_order_tracking_token or "")
 
 
 @router.patch("/api/orders/{order_id}/status")

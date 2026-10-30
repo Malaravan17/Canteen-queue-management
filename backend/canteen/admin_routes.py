@@ -1,11 +1,28 @@
 from datetime import timedelta
 from typing import Optional
-from fastapi import APIRouter, Header
+from fastapi import APIRouter, Header, HTTPException
 from .database import connect, now, row_dict
-from .schemas import SettingsInput
+from .schemas import SettingsInput, ClearOperationalDataInput
 from .services import QR_COUNTER_CAPACITY, require_admin
 
 router = APIRouter()
+
+
+@router.delete("/api/admin/operational-data")
+def clear_operational_data(payload: ClearOperationalDataInput, x_admin_key: Optional[str] = Header(default=None)):
+    """Clear operational history while preserving menu, stock, counter and settings configuration."""
+    require_admin(x_admin_key)
+    if payload.confirmation != "CLEAR DATA":
+        raise HTTPException(400, "Type CLEAR DATA to confirm this action.")
+    with connect() as con:
+        con.execute("BEGIN IMMEDIATE")
+        # Delete child/transaction tables before their parent records.
+        for table in ("payments", "order_tracking_secrets", "orders", "inventory_logs",
+                      "daily_wastage_records", "qr_customers", "alerts"):
+            con.execute(f"DELETE FROM {table}")
+        for table in ("payments", "orders", "inventory_logs", "daily_wastage_records", "qr_customers", "alerts"):
+            con.execute("DELETE FROM sqlite_sequence WHERE name=?", (table,))
+    return {"status": "ok", "message": "Operational history cleared. Menu, current stock, counters and settings were preserved."}
 
 @router.get("/api/settings")
 def get_settings():

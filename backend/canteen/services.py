@@ -1,3 +1,5 @@
+import hashlib
+import hmac
 from typing import Optional
 from fastapi import HTTPException
 from .database import ADMIN_DEMO_KEY, connect, now, row_dict
@@ -18,6 +20,23 @@ def get_order_by_id(order_id):
         row = con.execute("SELECT * FROM orders WHERE id=?", (oid,)).fetchone()
     if not row:
         raise HTTPException(404, "Order not found")
+    return row_dict(row)
+
+
+def hash_order_tracking_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def get_order_with_tracking_token(order_id, token):
+    try:
+        oid = int(order_id)
+    except (TypeError, ValueError):
+        raise HTTPException(404, "Order not found or tracking code is invalid.")
+    with connect() as con:
+        row = con.execute("SELECT * FROM orders WHERE id=?", (oid,)).fetchone()
+        secret = con.execute("SELECT token_hash FROM order_tracking_secrets WHERE order_id=?", (oid,)).fetchone()
+    if not row or not secret or not hmac.compare_digest(secret["token_hash"], hash_order_tracking_token(token or "")):
+        raise HTTPException(404, "Order not found or tracking code is invalid.")
     return row_dict(row)
 
 

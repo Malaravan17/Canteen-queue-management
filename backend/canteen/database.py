@@ -122,6 +122,12 @@ def init_database():
             completed_at TEXT,
             paid_at TEXT
         );
+        CREATE TABLE IF NOT EXISTS order_tracking_secrets (
+            order_id INTEGER PRIMARY KEY,
+            token_hash TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY(order_id) REFERENCES orders(id) ON DELETE CASCADE
+        );
         CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at);
         CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
         CREATE INDEX IF NOT EXISTS idx_orders_counter_status ON orders(counter_number, status);
@@ -144,6 +150,32 @@ def init_database():
             order_id TEXT,
             created_at TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS daily_wastage_records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            business_date TEXT NOT NULL,
+            item_id INTEGER NOT NULL,
+            item_name TEXT NOT NULL,
+            category TEXT NOT NULL,
+            unit_of_measure TEXT NOT NULL DEFAULT 'pieces',
+            unit_price_inr REAL NOT NULL,
+            planned_prepared_quantity INTEGER NOT NULL CHECK(planned_prepared_quantity >= 0),
+            is_holiday INTEGER NOT NULL DEFAULT 0 CHECK(is_holiday IN (0,1)),
+            actual_sold_quantity INTEGER,
+            actual_unsold_quantity INTEGER,
+            predicted_sold_quantity INTEGER,
+            predicted_unsold_quantity INTEGER,
+            prediction_mode TEXT,
+            prepared_at TEXT NOT NULL,
+            closed_at TEXT,
+            UNIQUE(business_date, item_id),
+            FOREIGN KEY(item_id) REFERENCES items(id),
+            CHECK(actual_sold_quantity IS NULL OR actual_sold_quantity >= 0),
+            CHECK(actual_unsold_quantity IS NULL OR actual_unsold_quantity >= 0),
+            CHECK(predicted_sold_quantity IS NULL OR predicted_sold_quantity >= 0),
+            CHECK(predicted_unsold_quantity IS NULL OR predicted_unsold_quantity >= 0)
+        );
+        CREATE INDEX IF NOT EXISTS idx_wastage_date_item ON daily_wastage_records(business_date,item_id);
+        CREATE INDEX IF NOT EXISTS idx_wastage_closed_date_item ON daily_wastage_records(closed_at,business_date,item_id);
         CREATE TABLE IF NOT EXISTS alerts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             message TEXT NOT NULL,

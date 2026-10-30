@@ -1,0 +1,109 @@
+{
+  "algorithm": "RandomForestRegressor",
+  "random_seed": 42,
+  "target": "actual_unsold_quantity",
+  "features": [
+    "item_name",
+    "category",
+    "day_of_week",
+    "is_weekend",
+    "is_holiday",
+    "month",
+    "unit_price_inr",
+    "planned_prepared_quantity",
+    "historical_avg_sales_7d",
+    "historical_avg_sales_28d",
+    "previous_day_unsold_quantity"
+  ],
+  "training_rows": 2800,
+  "test_rows": 700,
+  "train_end_date": "2026-02-04",
+  "test_start_date": "2026-02-05",
+  "mae": 0.796656897203326,
+  "rmse": 4.576455766073398,
+  "r2": -2938.7118921870397,
+  "test_target_zero_rows": 698,
+  "test_target_nonzero_rows": 2,
+  "test_target_std": 0.0844670480072548,
+  "synthetic_target_equals_previous_day_unsold_rows": 3381,
+  "rows": 3500,
+  "synthetic_data_caveat": "Holdout scores describe the supplied synthetic dataset only; target exactly matches previous-day unsold on many rows.",
+  "feature_importance": [
+    {
+      "feature": "numbers__planned_prepared_quantity",
+      "importance": 0.6576856380826392
+    },
+    {
+      "feature": "numbers__is_holiday",
+      "importance": 0.1836967102144379
+    },
+    {
+      "feature": "numbers__historical_avg_sales_28d",
+      "importance": 0.058526725662981165
+    },
+    {
+      "feature": "numbers__historical_avg_sales_7d",
+      "importance": 0.03190214846285045
+    },
+    {
+      "feature": "numbers__unit_price_inr",
+      "importance": 0.019155989814090023
+    },
+    {
+      "feature": "categories__category_Drinks",
+      "importance": 0.010871872331112703
+    },
+    {
+      "feature": "categories__item_name_Tea",
+      "importance": 0.00881631867116119
+    },
+    {
+      "feature": "numbers__month",
+      "importance": 0.008009818797918011
+    },
+    {
+      "feature": "categories__category_Snacks",
+      "importance": 0.006407268517653006
+    },
+    {
+      "feature": "numbers__day_of_week",
+      "importance": 0.004934667330245746
+    },
+    {
+      "feature": "categories__item_name_Samosa",
+      "importance": 0.004498534315350197
+    },
+    {
+      "feature": "categories__category_Breakfast",
+      "importance": 0.0027371695928353587
+    },
+    {
+      "feature": "numbers__previous_day_unsold_quantity",
+      "importance": 0.0006621945764991254
+    },
+    {
+      "feature": "categories__item_name_Idli (2 pcs)",
+      "importance": 0.0006592470464464592
+    },
+    {
+      "feature": "categories__item_name_Veg Sandwich",
+      "importance": 0.000593103372182016
+    },
+    {
+      "feature": "categories__item_name_Veg Puff",
+      "importance": 0.00040481911683277024
+    },
+    {
+      "feature": "numbers__is_weekend",
+      "importance": 0.00024850093920235713
+    },
+    {
+      "feature": "categories__item_name_Masala Dosa",
+      "importance": 0.00017921565488790043
+    },
+    {
+      "feature": "categories__item_name_Fresh Lime Juice",
+      "importance": 1.0057500674401783e-05
+    }
+  ]
+}
