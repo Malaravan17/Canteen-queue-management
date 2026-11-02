@@ -24,6 +24,8 @@ npm run dev -- --host 0.0.0.0
 Open http://localhost:5173. Manager dashboard: http://localhost:5173/admin.
 The Vite proxy forwards `/api` requests to FastAPI at port 8000.
 
+The student page includes a Gemini-powered canteen assistant. Configure `GEMINI_API_KEY` in `backend/.env` (the backend loads this file); the key stays on the server and is never sent to the browser. `GEMINI_MODEL` can optionally select a different Gemini model.
+
 ## Included
 - Searchable menu with category filters and stock availability
 - Cart quantity controls, subtotal, combo offers, checkout and customer name
@@ -32,6 +34,7 @@ The Vite proxy forwards `/api` requests to FastAPI at port 8000.
 - Order confirmation and live order status tracking
 - Manager dashboard for order status, inventory updates, adding menu items, counters, analytics, worker alerts, and peak-mode settings
 - QR code on the landing page pointing to the current site URL
+- Gemini assistant for menu, availability, and verified order questions
 - SQLite persistence in `backend/smartcanteen.db`
 
 ## Notes

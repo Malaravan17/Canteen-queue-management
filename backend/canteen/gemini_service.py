@@ -51,15 +51,27 @@ def generate_reply(message: str, history: list[dict], context: dict) -> str:
             api_key=api_key,
             http_options=types.HttpOptions(timeout=20000),
         )
-        result = client.models.generate_content(
-            model=os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip() or "gemini-3.8-flash",
-            contents=contents,
-            config=types.GenerateContentConfig(
-                system_instruction=SYSTEM_INSTRUCTION,
-                temperature=0.2,
-                max_output_tokens=300,
-            ),
+        model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip() or "gemini-3.8-flash"
+        config = types.GenerateContentConfig(
+            system_instruction=SYSTEM_INSTRUCTION,
+            temperature=0.2,
+            max_output_tokens=300,
         )
+        try:
+            result = client.models.generate_content(model=model, contents=contents, config=config)
+        except Exception as exc:
+            label = f"{type(exc).__name__} {exc}".lower()
+            status = getattr(exc, "code", None) or getattr(exc, "status_code", None)
+            try:
+                status = int(status) if status is not None else None
+            except (TypeError, ValueError):
+                status = None
+            is_overloaded = any(term in label for term in ("high demand", "currently experiencing", "overload", "deadline_exceeded", "deadline expired"))
+            if model != "gemini-3.6-flash" and (status == 504 or (status == 503 and is_overloaded)):
+                logger.info("Gemini model is under high demand; retrying with gemini-3.6-flash")
+                result = client.models.generate_content(model="gemini-3.6-flash", contents=contents, config=config)
+            else:
+                raise
         reply = (result.text or "").strip()
         if not reply:
             raise GeminiUnavailable("The assistant could not form a reply. Please try again.", 503)
@@ -78,7 +90,7 @@ def generate_reply(message: str, history: list[dict], context: dict) -> str:
         logger.warning("Gemini request failed: exception=%s status=%s", type(exc).__name__, status)
         if status == 429 or "429" in label or "resource_exhausted" in label or "rate limit" in label:
             raise GeminiUnavailable("Gemini's quota or rate limit was reached. Check the API project's quota or try again later.", 503) from exc
-        if "timeout" in label or "timed out" in label:
+        if status == 504 or "deadline_exceeded" in label or "timeout" in label or "timed out" in label:
             raise GeminiUnavailable("The assistant took too long to respond. Please try again.", 504) from exc
         if status in (401, 403):
             raise GeminiUnavailable("Gemini rejected this request. Check that the backend API key is valid and has access to the selected model.", 503) from exc

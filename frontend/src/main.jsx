@@ -76,6 +76,7 @@ function CustomerPage() {
   const [order, setOrder] = useState(null);
   const [orderIdToTrack, setOrderIdToTrack] = useState("");
   const [trackedOrder, setTrackedOrder] = useState(null);
+  const [chatOrderAccess, setChatOrderAccess] = useState(null);
   const [selectedCombo, setSelectedCombo] = useState("");
   const qrScanStarted = useRef(false);
 
@@ -163,6 +164,7 @@ function CustomerPage() {
       });
       setOrder(payment.order || created);
       setTrackedOrder(payment.order || created);
+      setChatOrderAccess({ order_id: String(created.id), tracking_token: created.tracking_token });
       setCart({});
       setSelectedCombo("");
       setPage("confirmation");
@@ -239,6 +241,7 @@ function CustomerPage() {
       })()}
     </main>
     <div className="floating-cart" hidden={page !== "menu" || cartCount === 0}><button className="primary-btn" onClick={() => setPage("cart")}>🛒 View cart <span>{cartCount} items</span><b>{money(subtotal)}</b></button></div>
+    <ChatWidget orderAccess={chatOrderAccess} />
     <footer className="footer">Smart Canteen Queue & Counter Planning · SQLite prototype</footer>
   </div>;
 }
@@ -346,5 +349,58 @@ function ManagerPage() {
 
 function Stat({label,value,icon}) { return <article className="stat-card"><span className="stat-icon">{icon}</span><div><small>{label}</small><strong>{value}</strong></div></article>; }
 function Empty({text}) { return <div className="empty-state">{text}</div>; }
+
+function ChatWidget({ orderAccess }) {
+  const [open, setOpen] = useState(false);
+  const [messages, setMessages] = useState([{ role: "assistant", text: "Hi! Ask me about the menu, prices, availability, or how to order." }]);
+  const [draft, setDraft] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [sessionId] = useState(() => {
+    const key = "smart-canteen-chat-session";
+    let id = sessionStorage.getItem(key);
+    if (!id) {
+      id = globalThis.crypto?.randomUUID?.() || `chat-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      sessionStorage.setItem(key, id);
+    }
+    return id;
+  });
+  const listRef = useRef(null);
+
+  useEffect(() => {
+    if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
+  }, [messages, busy, open]);
+
+  async function sendMessage(event) {
+    event?.preventDefault();
+    const message = draft.trim();
+    if (!message || busy) return;
+    setDraft(""); setError(""); setMessages(old => [...old, { role: "user", text: message }]); setBusy(true);
+    try {
+      const result = await request("/chat", {
+        method: "POST",
+        body: JSON.stringify({ message, session_id: sessionId, ...(orderAccess || {}) }),
+      });
+      setMessages(old => [...old, { role: "assistant", text: result.reply }]);
+    } catch (e) { setError(e.message); }
+    finally { setBusy(false); }
+  }
+
+  return <>
+    <button className={`chat-launcher ${open ? "is-open" : ""}`} onClick={() => setOpen(v => !v)} aria-expanded={open} aria-label={open ? "Close canteen assistant" : "Open canteen assistant"}>
+      <span aria-hidden="true">{open ? "×" : "✦"}</span>{!open && <b>Ask us</b>}
+    </button>
+    {open && <section className="chat-panel" aria-label="Smart Canteen assistant">
+      <header className="chat-header"><div><span className="chat-avatar">✦</span><div><strong>Canteen assistant</strong><small>Powered by Gemini</small></div></div><button onClick={() => setOpen(false)} aria-label="Close chat">×</button></header>
+      <div className="chat-messages" ref={listRef} aria-live="polite">
+        {messages.map((item, index) => <div className={`chat-message ${item.role}`} key={`${index}-${item.role}`}><span>{item.text}</span></div>)}
+        {busy && <div className="chat-message assistant"><span className="chat-typing">Thinking…</span></div>}
+      </div>
+      {error && <div className="chat-error" role="alert">{error}</div>}
+      <form className="chat-form" onSubmit={sendMessage}><input value={draft} onChange={e => setDraft(e.target.value)} placeholder="Ask about the canteen…" maxLength={1000} aria-label="Your message"/><button disabled={busy || !draft.trim()} aria-label="Send message">↑</button></form>
+      <p className="chat-note">Order details are shared only with your private tracking code.</p>
+    </section>}
+  </>;
+}
 
 createRoot(document.getElementById("root")).render(<AppErrorBoundary><App /></AppErrorBoundary>);
